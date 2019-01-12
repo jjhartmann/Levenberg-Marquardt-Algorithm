@@ -6,6 +6,21 @@ from numpy import inner, max, diag, eye, Inf, dot
 from numpy.linalg import norm, solve
 import time
 
+
+def line_error(params, x, y):
+    """
+    Line Error, calculates the error for the line equations y = mx + b
+    :param params: values to be used in model
+    :param x: inputs
+    :param y: observations
+    :return: difference between observations and estimates
+    """
+
+    m, b = params[0:2]
+    y_star = m * x + b
+
+    return y - y_star
+
 def numerical_differentiation(params, args, error_function):
     """ Numerical Differentiation
     Note: we are passing in the effor function for the model we are using, but
@@ -44,7 +59,7 @@ def numerical_differentiation(params, args, error_function):
 
 def LM(seed_params, args,
        error_function, jacobian_function,
-       llambda=1-e3, lambda_multiplier=10):
+       llambda=1e-3, lambda_multiplier=10):
     """ Levenberg-Marquardt Implementaiton
     :param  seed_params: initial starting guess for the params we are trying to find
     :param  args: the inputs (x) and observations (y)
