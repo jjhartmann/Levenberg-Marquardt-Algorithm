@@ -6,6 +6,18 @@ from numpy import inner, max, diag, eye, Inf, dot
 from numpy.linalg import norm, solve
 import time
 
+def line_with_noise(params, x, mu=0, sigma=5):
+    """ Calculate Line
+    :param params: parameters for line equation y = mx + b ([m, b])
+    :param x: input values
+    :return: a vector containing the output of the line equation with noise
+    """
+
+    m, b = params[0:2]
+
+    noise = np.random.normal(mu, sigma, len(x))
+    y = m * x + b + noise
+    return y
 
 def line_differentiation(params, args):
     """ Symbolic Differentiation for Line Equation
@@ -28,7 +40,7 @@ def line_differentiation(params, args):
     return J
 
 
-def line_error(params, x, y):
+def line_error(params, args):
     """
     Line Error, calculates the error for the line equations y = mx + b
     :param params: values to be used in model
@@ -36,7 +48,7 @@ def line_error(params, x, y):
     :param y: observations
     :return: difference between observations and estimates
     """
-
+    x, y = args
     m, b = params[0:2]
     y_star = m * x + b
 
@@ -56,7 +68,7 @@ def numerical_differentiation(params, args, error_function):
     min_delta = 1e-4
 
     x, y = args[0:2]
-    y_0 = error_function(params, x, y)
+    y_0 = error_function(params, args)
 
     # Jacobian
     J = np.empty(shape=(len(params),) + x.shape, dtype=np.float)
@@ -70,7 +82,7 @@ def numerical_differentiation(params, args, error_function):
 
         # Update single param and calculate error with updated value
         params_star[i] += delta
-        y_1 = error_function(params_star, x, y)
+        y_1 = error_function(params_star, args)
 
         # Update Jacobian with gradients
         diff = y_0 - y_1
@@ -98,7 +110,6 @@ def LM(seed_params, args,
     # Equality : (JtJ + lambda * I * diag(JtJ)) * delta = Jt * error
     # Solve for delta
     params = seed_params
-    x, y = args[0:2]
 
     # Retrieve jacobian of function gradients with respect to the params
     J = jacobian_function(params, args, error_function)
@@ -112,10 +123,10 @@ def LM(seed_params, args,
         k += 1
 
         # == Jt * error
-        error = error_function(params, x, y)
+        error = error_function(params, args)
         Jerror = inner(J, error)
 
-        rmserror = norm(error) / len(x)
+        rmserror = norm(error) / len(args[0])
         print("{} RMS: {} Params: {}".format(k, rmserror, params))
 
         reason = ""
@@ -129,22 +140,21 @@ def LM(seed_params, args,
 
             # Update params and calculate new error
             params_star = params + delta
-            error_star = error_function(params_star, x, y)
+            error_star = error_function(params_star, args)
 
             if norm(error_star) < norm(error):
                 params = params_star
                 llambda /= lambda_multiplier
+                continue
 
-            else:
-                llambda *= lambda_multiplier
+            llambda *= lambda_multiplier
 
             # Return if lambda explodes or if change is small
             if llambda > 1e7:
                 reason = "Lambda to large."
                 return rmserror, params, reason
 
-            reduction = norm(error - error_star)
-            if reduction < 1e-7:
+            if rmserror < 1e-3:
                 reason = "Converged to min epsilon"
                 return rmserror, params, reason
 
@@ -176,7 +186,7 @@ def testLM():
     line_params = [3.56, -25.36]
 
     # Observations
-    y = line_with_noise(line_params, x, 0, 4)
+    y = line_with_noise(line_params, x, 0, 50)
 
     # Seed
     start_params = [0, 0]
