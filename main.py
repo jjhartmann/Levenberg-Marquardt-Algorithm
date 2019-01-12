@@ -7,6 +7,27 @@ from numpy.linalg import norm, solve
 import time
 
 
+def line_differentiation(params, args):
+    """ Symbolic Differentiation for Line Equation
+    Note: we are passing in the effor function for the model we are using, but
+    we can substitute the error for the actual model function
+        error(x + delta) - error(x) <==> f(x + delta) - f(x)
+    :param params: values to be used in model
+    :param args: input (x) and observations (y)
+    :return: The jacobian for the error_function
+    """
+
+    m, b = params
+    x, y = args
+
+    # Jacobian
+    J = np.empty(shape=(len(params),) + x.shape, dtype=np.float)
+    J[0] = x  # d/dm = x
+    J[1] = 1  # d/db = 1
+
+    return J
+
+
 def line_error(params, x, y):
     """
     Line Error, calculates the error for the line equations y = mx + b
@@ -41,7 +62,7 @@ def numerical_differentiation(params, args, error_function):
     J = np.empty(shape=(len(params),) + x.shape, dtype=np.float)
 
     for i, param in enumerate(params):
-        params_star = params
+        params_star = params[:]
         delta = param * delta_factor
 
         if abs(delta) < min_delta:
@@ -153,7 +174,7 @@ def testLM():
     x = np.linspace(-500, 500, 1001)
 
     # Parameters:   m       b
-    line_params = [3.56, 5.36]
+    line_params = [3.56, -25.36]
 
     # Observations
     y = line_with_noise(line_params, x)
