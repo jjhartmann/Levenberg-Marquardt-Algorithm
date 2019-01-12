@@ -1,4 +1,4 @@
-""" Module: Vanilla Levenberg-Marquardt Algorithm
+""" Module: Levenberg-Marquardt Algorithm Implementations
     Used for optimizing paramters to fit a distribtion.
 """
 import numpy as np
@@ -34,7 +34,7 @@ def numerical_differentiation(params, args, error_function):
     delta_factor = 1e-4
     min_delta = 1e-4
 
-    x, y = params
+    x, y = args[0:2]
     y_0 = error_function(params, x, y)
 
     # Jacobian
@@ -58,19 +58,74 @@ def numerical_differentiation(params, args, error_function):
     return J
 
 def LM(seed_params, args,
-       error_function, jacobian_function,
-       llambda=1e-3, lambda_multiplier=10):
+       error_function, jacobian_function=numerical_differentiation,
+       llambda=1e-3, lambda_multiplier=10, kmax=500):
     """ Levenberg-Marquardt Implementaiton
+     See: (https://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm)
     :param  seed_params: initial starting guess for the params we are trying to find
     :param  args: the inputs (x) and observations (y)
     :param  error_function: describes how error is calculated for the model
+        function args (params, x, y)
     :param  jacobian_function: produces and returns the jacobian for model
+        function args (params, args, error_function)
     :param  llambda: initial dampening factor
     :param  lambda_multiplier: scale used to increase/decrease lambda
-    :return:  rmserror
+    :param  kmax: max number of iterations
+    :return:  rmserror, params
     """
 
+    # Equality : (JtJ + lambda * I * diag(JtJ)) * delta = Jt * error
+    # Solve for delta
+    params = seed_params
+    x, y = args[0:2]
 
+    # Retrieve jacobian of function gradients with respect to the params
+    J = jacobian_function(params, args, error_function)
+    JtJ = inner(J, J)
+
+    # I * diag(JtJ)
+    A = eye(len(params)) * diag(JtJ)
+
+    k = 0
+    while k < kmax:
+        k += 1
+
+        # == Jt * error
+        error = error_function(params, x, y)
+        Jerror = inner(J, error)
+
+        rmserror = norm(error) / len(x)
+        print("{} RMS: {} Params: {}".format(k, rmserror, params))
+
+        error_star = error
+        while norm(error_star) >= norm(error):
+            try:
+                delta = solve(JtJ + llambda * A, -Jerror)
+            except np.linalg.LinAlgError:
+                print("Error: Singular Matrix")
+                return -1
+
+            # Update params and calculate new error
+            params_star = params + delta
+            error_star = error_function(params_star, x, y)
+
+            if norm(error_star) < norm(error):
+                params = params_star
+                llambda /= lambda_multiplier
+
+            else:
+                llambda *= lambda_multiplier
+
+            # Return if lambda explodes or if change is small
+
+            if llambda > 1e7:
+                return rmserror, params
+
+            reduction = norm(error - error_star)
+            if reduction < 1e-7:
+                return rmserror, params
+
+    return rmserror, params
 
 def line_with_noise(params, x, mu=0, sigma=5):
     """ Calculate Line
@@ -95,15 +150,15 @@ def testLM():
     x = np.linspace(-500, 500, 1001)
 
     # Parameters:   m       b
-    line_params = [3.56, -2.34]
+    line_params = [3.56, -5.36]
 
     # Observations
     y = line_with_noise(line_params, x)
 
     # Seed
-    start_params = [1, 1]
+    start_params = [0, 0]
 
-
+    return LM(start_params, (x, y), line_error)
 
 
 if __name__ == '__main__':
