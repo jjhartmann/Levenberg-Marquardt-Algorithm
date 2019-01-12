@@ -7,7 +7,7 @@ from numpy.linalg import norm, solve
 import time
 
 
-def line_differentiation(params, args):
+def line_differentiation(params, args, error_function):
     """ Symbolic Differentiation for Line Equation
     Note: we are passing in the effor function for the model we are using, but
     we can substitute the error for the actual model function
@@ -73,7 +73,7 @@ def numerical_differentiation(params, args, error_function):
         y_1 = error_function(params_star, x, y)
 
         # Update Jacobian with gradients
-        diff = y_1 - y_0
+        diff = y_0 - y_1
         J[i] = diff / delta
 
     return J
@@ -122,7 +122,7 @@ def LM(seed_params, args,
         error_star = error
         while norm(error_star) >= norm(error):
             try:
-                delta = solve(JtJ + llambda * A, -Jerror)
+                delta = solve(JtJ + llambda * A, Jerror)
             except np.linalg.LinAlgError:
                 print("Error: Singular Matrix")
                 return -1
@@ -139,7 +139,6 @@ def LM(seed_params, args,
                 llambda *= lambda_multiplier
 
             # Return if lambda explodes or if change is small
-
             if llambda > 1e7:
                 reason = "Lambda to large."
                 return rmserror, params, reason
@@ -160,7 +159,7 @@ def line_with_noise(params, x, mu=0, sigma=5):
 
     m, b = params[0:2]
 
-    noise = np.random.normal(0, 5, len(x))
+    noise = np.random.normal(mu, sigma, len(x))
     y = m * x + b + noise
     return y
 
@@ -177,12 +176,12 @@ def testLM():
     line_params = [3.56, -25.36]
 
     # Observations
-    y = line_with_noise(line_params, x)
+    y = line_with_noise(line_params, x, 0, 4)
 
     # Seed
     start_params = [0, 0]
 
-    return LM(start_params, (x, y), line_error)
+    return LM(start_params, (x, y), line_error, numerical_differentiation)
 
 
 if __name__ == '__main__':
