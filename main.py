@@ -97,6 +97,7 @@ def LM(seed_params, args,
         rmserror = norm(error) / len(x)
         print("{} RMS: {} Params: {}".format(k, rmserror, params))
 
+        reason = ""
         error_star = error
         while norm(error_star) >= norm(error):
             try:
@@ -119,13 +120,15 @@ def LM(seed_params, args,
             # Return if lambda explodes or if change is small
 
             if llambda > 1e7:
-                return rmserror, params
+                reason = "Lambda to large."
+                return rmserror, params, reason
 
             reduction = norm(error - error_star)
             if reduction < 1e-7:
-                return rmserror, params
+                reason = "Converged to min epsilon"
+                return rmserror, params, reason
 
-    return rmserror, params
+    return rmserror, params, "Finished kmax iterations"
 
 def line_with_noise(params, x, mu=0, sigma=5):
     """ Calculate Line
@@ -150,7 +153,7 @@ def testLM():
     x = np.linspace(-500, 500, 1001)
 
     # Parameters:   m       b
-    line_params = [3.56, -5.36]
+    line_params = [3.56, 5.36]
 
     # Observations
     y = line_with_noise(line_params, x)
