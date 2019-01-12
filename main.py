@@ -7,7 +7,7 @@ from numpy.linalg import norm, solve
 import time
 
 
-def line_differentiation(params, args, error_function):
+def line_differentiation(params, args):
     """ Symbolic Differentiation for Line Equation
     Note: we are passing in the effor function for the model we are using, but
     we can substitute the error for the actual model function
