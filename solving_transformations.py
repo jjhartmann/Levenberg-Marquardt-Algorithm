@@ -108,10 +108,11 @@ def projective_error_function(params, args):
     """
 
     model, image = args
-    transfomed_points, _, _ = transform(params, model)
+    tp = params[0:6]
+    transfomed_points, _, _ = transform(tp, model)
 
     #                  fx   fy  cx    cy  k0 k1
-    project_params = [700, 700, 350, 350, 0, 0]
+    project_params = params[6:12]
     image_star = projective_transform(project_params, transfomed_points)
 
     dataShape = image.shape
@@ -157,11 +158,6 @@ def testTransformation():
     transform_parms =  R_params + t_params
     transfomed_points, R, t = transform(transform_parms, model_points, False, 0, 5)
 
-    #                  fx   fy  cx    cy  k0 k1
-    project_params = [700, 700, 350, 350, 0, 0]
-    image_points = projective_transform(project_params, transfomed_points)
-
-
     # Seed Params
     seed = np.zeros(6) # transform_parms + (np.random.normal(0, 11, 6))
 
@@ -173,10 +169,41 @@ def testTransformation():
 
 
 
+def testTransformation2():
+    """ Find rotation and translation between corresponding point sets
+    by find the homography transformatino between the two.
+    Assumption: In camera frames"""
+
+    # Camera A
+    model_points = ((2 * np.random.rand(3, 1000)) - 1) * 100
+    # model_points = np.random.normal(0, 100, (3, 1000))
+
+    # Ground truth transformation parameters
+    #           x    y   z
+    R_params = [23 * math.pi/180, -12 * math.pi/180, 4 *math.pi/180]
+    t_params = [44, -102, 12]
+    transform_parms =  R_params + t_params
+    transfomed_points, R, t = transform(transform_parms, model_points, False, 0, 5)
+
+    #                  fx   fy  cx    cy  k0 k1
+    project_params = [5, 5, 2, 2, 0, 0]
+    image_points = projective_transform(project_params, transfomed_points)
+
+
+    # Seed Params
+    seed = np.ones(12) # transform_parms + (np.random.normal(0, 11, 6))
+
+    # Run LMA
+    out = LMA.LM(seed, (model_points, image_points),
+                 projective_error_function,
+                 lambda_multiplier=10,  kmax=10000, eps=1)
+    print(out)
+
 
 
 
 
 if __name__ == '__main__':
     print("Test Cases")
+    # print(testTransformation2())
     print(testTransformation())
