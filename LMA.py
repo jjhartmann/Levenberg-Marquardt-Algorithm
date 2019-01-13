@@ -67,11 +67,11 @@ def numerical_differentiation(params, args, error_function):
     delta_factor = 1e-4
     min_delta = 1e-4
 
-    x, y = args[0:2]
+    # Compute error
     y_0 = error_function(params, args)
 
     # Jacobian
-    J = np.empty(shape=(len(params),) + x.shape, dtype=np.float)
+    J = np.empty(shape=(len(params),) + y_0.shape, dtype=np.float)
 
     for i, param in enumerate(params):
         params_star = params[:]
@@ -92,7 +92,7 @@ def numerical_differentiation(params, args, error_function):
 
 def LM(seed_params, args,
        error_function, jacobian_function=numerical_differentiation,
-       llambda=1e-3, lambda_multiplier=10, kmax=500):
+       llambda=1e-3, lambda_multiplier=10, kmax=500, eps=1e-3):
     """ Levenberg-Marquardt Implementaiton
      See: (https://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm)
     :param  seed_params: initial starting guess for the params we are trying to find
@@ -111,16 +111,16 @@ def LM(seed_params, args,
     # Solve for delta
     params = seed_params
 
-    # Retrieve jacobian of function gradients with respect to the params
-    J = jacobian_function(params, args, error_function)
-    JtJ = inner(J, J)
-
-    # I * diag(JtJ)
-    A = eye(len(params)) * diag(JtJ)
-
     k = 0
     while k < kmax:
         k += 1
+
+        # Retrieve jacobian of function gradients with respect to the params
+        J = jacobian_function(params, args, error_function)
+        JtJ = inner(J, J)
+
+        # I * diag(JtJ)
+        A = eye(len(params)) * diag(JtJ)
 
         # == Jt * error
         error = error_function(params, args)
@@ -128,6 +128,10 @@ def LM(seed_params, args,
 
         rmserror = norm(error) / len(args[0])
         print("{} RMS: {} Params: {}".format(k, rmserror, params))
+
+        if rmserror < eps:
+            reason = "Converged to min epsilon"
+            return rmserror, params, reason
 
         reason = ""
         error_star = error
@@ -154,8 +158,11 @@ def LM(seed_params, args,
                 reason = "Lambda to large."
                 return rmserror, params, reason
 
-            if rmserror < 1e-3:
-                reason = "Converged to min epsilon"
+
+
+            reduction = abs(norm(error) - norm(error_star))
+            if reduction < 1e-6:
+                reason = "Change in error too small"
                 return rmserror, params, reason
 
     return rmserror, params, "Finished kmax iterations"
@@ -186,7 +193,7 @@ def testLM():
     line_params = [3.56, -25.36]
 
     # Observations
-    y = line_with_noise(line_params, x, 0, 50)
+    y = line_with_noise(line_params, x, 0, 2)
 
     # Seed
     start_params = [0, 0]
