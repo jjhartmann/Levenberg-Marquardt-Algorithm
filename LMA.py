@@ -126,7 +126,7 @@ def LM(seed_params, args,
         error = error_function(params, args)
         Jerror = inner(J, error)
 
-        rmserror = norm(error) / len(args[0])
+        rmserror = norm(error) / len(error)
         print("{} RMS: {} Params: {}".format(k, rmserror, params))
 
         if rmserror < eps:
@@ -134,7 +134,7 @@ def LM(seed_params, args,
             return rmserror, params, reason
 
         reason = ""
-        error_star = error
+        error_star = error[:]
         while norm(error_star) >= norm(error):
             try:
                 delta = solve(JtJ + llambda * A, Jerror)
@@ -143,22 +143,20 @@ def LM(seed_params, args,
                 return -1
 
             # Update params and calculate new error
-            params_star = params + delta
+            params_star = params[:] + delta[:]
             error_star = error_function(params_star, args)
 
             if norm(error_star) < norm(error):
                 params = params_star
                 llambda /= lambda_multiplier
-                continue
+                break
 
             llambda *= lambda_multiplier
 
             # Return if lambda explodes or if change is small
-            if llambda > 1e7:
+            if llambda > 1e9:
                 reason = "Lambda to large."
                 return rmserror, params, reason
-
-
 
             reduction = abs(norm(error) - norm(error_star))
             if reduction < 1e-6:

@@ -164,7 +164,7 @@ def testTransformation():
     # Run LMA
     out = LMA.LM(seed, (model_points, transfomed_points),
                  projective_error_function_2,
-                 lambda_multiplier=10,  kmax=10000, eps=1)
+                 lambda_multiplier=10,  kmax=10000, eps=0.001)
     print(out)
 
 
@@ -175,7 +175,7 @@ def testTransformation2():
     Assumption: In camera frames"""
 
     # Camera A
-    model_points = ((2 * np.random.rand(3, 1000)) - 1) * 100
+    model_points = ((2 * np.random.rand(3, 10000)) - 1) * 500
     # model_points = np.random.normal(0, 100, (3, 1000))
 
     # Ground truth transformation parameters
@@ -186,17 +186,17 @@ def testTransformation2():
     transfomed_points, R, t = transform(transform_parms, model_points, False, 0, 5)
 
     #                  fx   fy  cx    cy  k0 k1
-    project_params = [5, 5, 2, 2, 0, 0]
+    project_params = [10, 10, 5, 5, 0, 0]
     image_points = projective_transform(project_params, transfomed_points)
 
 
     # Seed Params
     seed = np.ones(12) # transform_parms + (np.random.normal(0, 11, 6))
-
+    seed = seed + [0,0,0,0,0,0,10, 10, 5, 5, 0, 0]
     # Run LMA
     out = LMA.LM(seed, (model_points, image_points),
                  projective_error_function,
-                 lambda_multiplier=10,  kmax=10000, eps=1)
+                 lambda_multiplier=2,  kmax=100000, eps=1)
     print(out)
 
 
