@@ -46,7 +46,7 @@ def projective_transform(params, pointset, mu=0, sigma=10):
     # Apply distortion params
     rSquared = np.linalg.norm(uv, axis=0)
     uv = uv * (1 + k0*rSquared + k1*rSquared*rSquared)
-    uv = uv.transpose() * f.transpose()
+    uv = uv.transpose() @ eye(2, 2) * f.transpose()
     uv[:, 0] += c[0]
     uv[:, 1] += c[1]
 
@@ -63,7 +63,7 @@ def transform(params, pointset, noise=False, mu=0, sigma=10):
     :return:
     """
 
-    thetas = params[0:3]
+    thetas = np.array(params[0:3]) * math.pi/180
     t = params[3:6]
 
     Rx = np.eye(3, 3)
@@ -107,13 +107,32 @@ def projective_error_function(params, args):
     :return:
     """
 
-    model, image = args
-    tp = params[0:6]
-    transfomed_points, _, _ = transform(tp, model)
-
     #                  fx   fy  cx    cy  k0 k1
-    project_params = params[6:12]
-    image_star = projective_transform(project_params, transfomed_points)
+    project_params = params[0:5]
+    f, cx, cy, k0, k1 = project_params
+
+    K = eye(3, 3)
+    K[0,0] = f
+    K[1,1] = f
+    K[0, 2] = k0
+    K[1, 2] = k1
+
+
+    model, image = args
+    tp = params[5:]
+    _, R, t = transform(tp, model)
+    Rt = np.c_[R, t.transpose()]
+
+    # Reconstruct camera matrix
+    P = K @ Rt
+
+    # Project
+    X = np.zeros((4, len(model[0])))
+    X[0:3] = model
+    X[3] = 1
+
+    PX = P @ X
+    image_star = PX[0:2] / PX[2]
 
     dataShape = image.shape
     nData = dataShape[0] * dataShape[1]
@@ -153,7 +172,7 @@ def testTransformation():
 
     # Ground truth transformation parameters
     #           x    y   z
-    R_params = [23 * math.pi/180, -12 * math.pi/180, 4 *math.pi/180]
+    R_params = [23, -12, 4]
     t_params = [44, -102, 12]
     transform_parms =  R_params + t_params
     transfomed_points, R, t = transform(transform_parms, model_points, False, 0, 5)
@@ -167,6 +186,41 @@ def testTransformation():
                  lambda_multiplier=10,  kmax=10000, eps=0.001)
     print(out)
 
+def IsPlanar(points, kmax=100, threshold=1e-3):
+    """
+    Determine if points lay on a plane using principle component analysis
+    https://en.wikipedia.org/wiki/Principal_component_analysis
+
+    :param points:
+    :param kmax: max iterations
+    :return: planar(bool), eigenratio (float)
+    """
+
+
+    # reshape points so row is axis components
+    X = points.T
+
+    # find mean
+    mu = np.zeros(len(X[0]))
+    for x in X:
+        mu = mu + x
+    mu = mu / len(X)
+
+    # build covariance matrix
+    A = np.zeros((3,3))
+    for x in X:
+        xc = x - mu
+        A = A + np.outer(xc.T, xc)
+
+    # compute eigenvalues and eigenvectors (column vectors)
+    W, v = np.linalg.eig(A)
+    W = np.sort(W)  # ascending order
+
+    # ratio between the smallest and second smallest value
+    eigenRatio = W[0] / (W[1] + 0.00001)
+    planar = eigenRatio < threshold
+
+    return planar, eigenRatio
 
 
 def testTransformation2():
@@ -175,35 +229,58 @@ def testTransformation2():
     Assumption: In camera frames"""
 
     # Camera A
-    model_points = ((2 * np.random.rand(3, 10000)) - 1) * 500
-    # model_points = np.random.normal(0, 100, (3, 1000))
+    model_points = ((2 * np.random.rand(3, 20)) - 1) * 500
+    # model_points = np.random.normal(0, 100, (3, 100))
+
+    planar, ratio = IsPlanar(model_points)
+
 
     # Ground truth transformation parameters
     #           x    y   z
-    R_params = [23 * math.pi/180, -12 * math.pi/180, 4 *math.pi/180]
+    R_params = [23, -12, 4]
     t_params = [44, -102, 12]
     transform_parms =  R_params + t_params
     transfomed_points, R, t = transform(transform_parms, model_points, False, 0, 5)
 
     #                  fx   fy  cx    cy  k0 k1
-    project_params = [10, 10, 5, 5, 0, 0]
+    project_params = [100, 100, 50, 50, 0, 0]
     image_points = projective_transform(project_params, transfomed_points)
 
+    i = 0
+    while i < 40:
+        i = i + 1
+        # Seed Params
+        # seed = np.zeros(12) # transform_parms + (np.random.normal(0, 11, 6))
+        # seed = seed + [0,0,0,0,0,0,10, 10, 5, 5, 0, 0]
 
-    # Seed Params
-    seed = np.ones(12) # transform_parms + (np.random.normal(0, 11, 6))
-    seed = seed + [0,0,0,0,0,0,10, 10, 5, 5, 0, 0]
-    # Run LMA
-    out = LMA.LM(seed, (model_points, image_points),
-                 projective_error_function,
-                 lambda_multiplier=2,  kmax=100000, eps=1)
-    print(out)
+        noiseval = i * 0.5
+        transformNoise = transform_parms + np.random.normal(0, noiseval, 6)
+        projectNoise = project_params[1:] + np.random.normal(0, noiseval, 5)
+        seed = np.concatenate([projectNoise, transformNoise])
+        # seed = seed + (np.random.normal(0, 0.1, 11))
 
 
+        # Run LMA
+        out = LMA.LM(seed, (model_points, image_points),
+                     projective_error_function,
+                     lambda_multiplier=2,  kmax=1000, eps=1)
+
+
+        print("\n\nRMS ERR: \t{}".format(out[0]))
+        print("Eigen Ratio: \t{}".format(ratio))
+        print("Noise Val: {}".format(noiseval))
+        print("Projection: \t{}".format(out[1][0:5]))
+        print("Angle: \t{}".format(out[1][5:8]))
+        print("Translation: \t{}".format(out[1][8:11]))
+        print("Reason: \t{}".format(out[2]))
+
+
+
+    print(model_points)
 
 
 
 if __name__ == '__main__':
     print("Test Cases")
-    # print(testTransformation2())
-    print(testTransformation())
+    print(testTransformation2())
+    # print(testTransformation())
