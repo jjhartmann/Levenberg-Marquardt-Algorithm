@@ -279,8 +279,90 @@ def testTransformation2():
     print(model_points)
 
 
+def testTransformation3():
+    """ Find rotation and translation between corresponding point sets
+    by find the homography transformatino between the two.
+    Assumption: In camera frames"""
+
+
+
+    i = 0
+    while i < 40:
+        i = i + 1
+
+        N = 20
+        model_points = np.ones((3, N))
+
+        variance = 1/40 * i
+        var = np.array([0.1, 0.1, variance])
+        C = eye(3,3)  #np.outer(var, var)
+        # C = eye(3, 3)
+        C[0,1] = variance
+        C[1,0] = variance
+        C[2,1] = variance
+        C[1,2] = variance
+        C[0,2] = variance/10
+        C[2,0] = variance/10
+
+        model_points = np.random.multivariate_normal([0,0,0], C, 15) * 200
+        model_points = model_points.T
+
+        planar, ratio = IsPlanar(model_points)
+
+        # flat = False
+        # while not flat:
+        #     # Camera A
+        #     model_points = ((2 * np.random.rand(3, 20)) - 1) * 500
+        #     # model_points = np.random.normal(0, 20, (3, 100))
+        #
+        #     planar, ratio = IsPlanar(model_points)
+        #
+        #     flat = ratio > 0.8
+
+        # Ground truth transformation parameters
+        #           x    y   z
+        R_params = [23, -12, 4]
+        t_params = [44, -102, 12]
+        transform_parms = R_params + t_params
+        transfomed_points, R, t = transform(transform_parms, model_points, False, 0, 5)
+
+        #                  fx   fy  cx    cy  k0 k1
+        project_params = [100, 100, 50, 50, 0, 0]
+        image_points = projective_transform(project_params, transfomed_points)
+
+        # Seed Params
+        # seed = np.zeros(12) # transform_parms + (np.random.normal(0, 11, 6))
+        # seed = seed + [0,0,0,0,0,0,10, 10, 5, 5, 0, 0]
+
+        noiseval = 5  #i * 1
+        transformNoise = transform_parms + np.random.normal(0, noiseval, 6)
+        projectNoise = project_params[1:] + np.random.normal(0, noiseval, 5)
+        seed = np.concatenate([projectNoise, transformNoise])
+        # seed = seed + (np.random.normal(0, 0.1, 11))
+
+
+        # Run LMA
+        out = LMA.LM(seed, (model_points, image_points),
+                     projective_error_function,
+                     lambda_multiplier=2,  kmax=2000, eps=0.1)
+
+
+        print("\n\nRMS ERR: \t{}".format(out[0]))
+        print("Eigen Ratio: \t{}, {}".format(ratio, variance))
+        print("Noise Val: {}".format(noiseval))
+        print("Projection: \t{}".format(out[1][0:5]))
+        print("Angle: \t{}".format(out[1][5:8]))
+        print("Translation: \t{}".format(out[1][8:11]))
+        print("Reason: \t{}".format(out[2]))
+
+
+
+    print(model_points)
+
+
 
 if __name__ == '__main__':
     print("Test Cases")
-    print(testTransformation2())
+    print(testTransformation3())
+    # print(testTransformation2())
     # print(testTransformation())
