@@ -92,7 +92,7 @@ def numerical_differentiation(params, args, error_function):
 
 def LM(seed_params, args,
        error_function, jacobian_function=numerical_differentiation,
-       llambda=1e-3, lambda_multiplier=10, kmax=500, eps=1e-3):
+       llambda=1e-3, lambda_multiplier=10, kmax=500, eps=1e-3, verbose=False):
     """ Levenberg-Marquardt Implementaiton
      See: (https://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm)
     :param  seed_params: initial starting guess for the params we are trying to find
@@ -127,7 +127,9 @@ def LM(seed_params, args,
         Jerror = inner(J, error)
 
         rmserror = norm(error) / len(error)
-        print("{} RMS: {} Params: {}".format(k, rmserror, params))
+
+        if verbose:
+            print("{} RMS: {} Params: {}".format(k, rmserror, params))
 
         if rmserror < eps:
             reason = "Converged to min epsilon"
@@ -158,10 +160,10 @@ def LM(seed_params, args,
                 reason = "Lambda to large."
                 return rmserror, params, reason
 
-            reduction = abs(norm(error) - norm(error_star))
-            if reduction < 1e-6:
-                reason = "Change in error too small"
-                return rmserror, params, reason
+        reduction = abs(norm(error) - norm(error_star))
+        if reduction < 1e-8:
+            reason = "Change in error too small"
+            return rmserror, params, reason
 
     return rmserror, params, "Finished kmax iterations"
 
