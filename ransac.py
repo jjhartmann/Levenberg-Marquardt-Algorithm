@@ -4,6 +4,25 @@ from numpy import inner, max, diag, eye, Inf, dot
 from numpy.linalg import norm, solve
 import time
 
+class RansacModel:
+    _minModelParams=2
+    _createModelCallback = None
+    _evaluateModelCallback = None
+    _params = None
+    def __init__(self, minParams, createModelCallback, evaluateModelCallback):
+        _minModelparams=minParams
+        _createModelCallback = createModelCallback
+        _evaluateModelCallback = evaluateModelCallback
+
+    def create(self, input, observations):
+        self._params = self._createModelCallback(input, observations)
+
+    def evaluate(self, input, observations):
+        return self._evaluateModelCallback(input, observations)
+
+def ransac(minModelParams, kmax=100):
+    pass;
+
 
 def line_with_noise(params, x, mu=0, sigma=5):
     """ Calculate Line
@@ -33,7 +52,7 @@ def testRANSAC():
     # Observations
     y = line_with_noise(line_params, x, 0, 2)
 
-    
+
 
 
 
