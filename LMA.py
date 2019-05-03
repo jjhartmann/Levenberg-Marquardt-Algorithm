@@ -161,7 +161,7 @@ def LM(seed_params, args,
                 return rmserror, params, reason
 
         reduction = abs(norm(error) - norm(error_star))
-        if reduction < 1e-8:
+        if reduction < 1e-18:
             reason = "Change in error too small"
             return rmserror, params, reason
 
