@@ -126,7 +126,7 @@ def LM(seed_params, args,
         error = error_function(params, args)
         Jerror = inner(J, error)
 
-        rmserror = norm(error) / len(error)
+        rmserror = norm(error)
 
         if verbose:
             print("{} RMS: {} Params: {}".format(k, rmserror, params))
@@ -137,7 +137,8 @@ def LM(seed_params, args,
 
         reason = ""
         error_star = error[:]
-        while norm(error_star) >= norm(error):
+        rmserror_star = rmserror + 1
+        while rmserror_star >= rmserror:
             try:
                 delta = solve(JtJ + llambda * A, Jerror)
             except np.linalg.LinAlgError:
@@ -147,8 +148,9 @@ def LM(seed_params, args,
             # Update params and calculate new error
             params_star = params[:] + delta[:]
             error_star = error_function(params_star, args)
+            rmserror_star = norm(error_star)
 
-            if norm(error_star) < norm(error):
+            if rmserror_star < rmserror:
                 params = params_star
                 llambda /= lambda_multiplier
                 break
@@ -160,7 +162,7 @@ def LM(seed_params, args,
                 reason = "Lambda to large."
                 return rmserror, params, reason
 
-        reduction = abs(norm(error) - norm(error_star))
+        reduction = abs(rmserror - rmserror_star)
         if reduction < 1e-18:
             reason = "Change in error too small"
             return rmserror, params, reason
